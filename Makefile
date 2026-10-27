@@ -1,6 +1,9 @@
 COMPOSE ?= docker compose
 DAG_ID := cnpj_medallion
-RUN := $(COMPOSE) run --rm --no-deps --entrypoint
+# One-off containers go through the image entrypoint, which registers the host UID in
+# /etc/passwd (the JVM/Hadoop need a username); the DB wait is skipped since postgres
+# is not started for these commands.
+RUN := $(COMPOSE) run --rm --no-deps -e CONNECTION_CHECK_MAX_COUNT=0 airflow-scheduler
 PY_SOURCES := src dags tests
 
 .DEFAULT_GOAL := help
@@ -43,14 +46,13 @@ run-release: register-dag ## Trigger a release: make run-release RELEASE=2026-10
 		--conf '{"release": "$(RELEASE)", "force": $(or $(FORCE),false)}'
 
 test: .env ## Run the test suite inside the Airflow image
-	$(RUN) python airflow-scheduler -m pytest
+	$(RUN) python -m pytest
 
 lint: .env ## flake8 + black --check inside the Airflow image
-	$(RUN) flake8 airflow-scheduler $(PY_SOURCES)
-	$(RUN) black airflow-scheduler --check $(PY_SOURCES)
+	$(RUN) bash -c "flake8 $(PY_SOURCES) && black --check $(PY_SOURCES)"
 
 format: .env ## Apply black formatting
-	$(RUN) black airflow-scheduler $(PY_SOURCES)
+	$(RUN) python -m black $(PY_SOURCES)
 
 venv: ## Create a local .venv (needs Python 3.9+ and Java 11/17 for Spark)
 	python3 -m venv .venv
