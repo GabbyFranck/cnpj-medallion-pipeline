@@ -29,6 +29,10 @@ def build_spark(app_name: str, settings: Settings) -> SparkSession:
         .config("spark.sql.session.timeZone", "UTC")
         .config("spark.ui.showConsoleProgress", "false")
     )
+    if settings.spark_ivy_dir:
+        # Spark defaults to $user.home/.ivy2, and the JVM reports user.home as "?" when the
+        # container UID has no /etc/passwd entry, so the jar cache path is set explicitly.
+        builder = builder.config("spark.jars.ivy", settings.spark_ivy_dir)
     return configure_spark_with_delta_pip(builder).getOrCreate()
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -12,8 +13,11 @@ from cnpj_pipeline.spark_session import build_spark
 
 @pytest.fixture(scope="session")
 def spark():
-    settings = Settings(
-        spark_master="local[2]", spark_driver_memory="1g", spark_shuffle_partitions=2
+    settings = replace(
+        Settings.from_env(),
+        spark_master="local[2]",
+        spark_driver_memory="1g",
+        spark_shuffle_partitions=2,
     )
     session = build_spark("cnpj-tests", settings)
     session.sparkContext.setLogLevel("ERROR")

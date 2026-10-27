@@ -55,6 +55,7 @@ class Settings:
     spark_master: str = "local[*]"
     spark_driver_memory: str = "4g"
     spark_shuffle_partitions: int = 64
+    spark_ivy_dir: Optional[str] = None
     max_corrupt_ratio: float = 0.001
     max_orphan_ratio: float = 0.05
 
@@ -75,6 +76,7 @@ class Settings:
             spark_master=_env("SPARK_MASTER", defaults.spark_master),
             spark_driver_memory=_env("SPARK_DRIVER_MEMORY", defaults.spark_driver_memory),
             spark_shuffle_partitions=int(_env("SPARK_SHUFFLE_PARTITIONS", "64")),
+            spark_ivy_dir=os.getenv("SPARK_IVY_DIR", "").strip() or None,
             max_corrupt_ratio=float(_env("DQ_MAX_CORRUPT_RATIO", "0.001")),
             max_orphan_ratio=float(_env("DQ_MAX_ORPHAN_RATIO", "0.05")),
         )

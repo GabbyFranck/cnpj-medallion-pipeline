@@ -30,10 +30,21 @@ def test_settings_from_env(monkeypatch):
     monkeypatch.setenv("CNPJ_FILE_PARTS", "0-1")
     monkeypatch.setenv("CNPJ_RELEASE", "2026-10-13")
     monkeypatch.setenv("SPARK_DRIVER_MEMORY", "2g")
+    monkeypatch.setenv("SPARK_IVY_DIR", "/opt/ivy")
     settings = Settings.from_env()
     assert settings.file_parts == (0, 1)
     assert settings.release == "2026-10-13"
     assert settings.spark_driver_memory == "2g"
+    assert settings.spark_ivy_dir == "/opt/ivy"
+
+
+def test_settings_from_env_defaults(monkeypatch):
+    for name in ("CNPJ_RELEASE", "CNPJ_FILE_PARTS", "SPARK_IVY_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    settings = Settings.from_env()
+    assert settings.release is None
+    assert settings.file_parts == (1,)
+    assert settings.spark_ivy_dir is None
 
 
 def test_bronze_path_follows_bucket_partition_layout(tmp_path):
