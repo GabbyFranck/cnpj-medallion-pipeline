@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CNPJ Medallion · Arquitetura</title>
+<style>
+  :root {
+    --bg: #f6f5f2;
+    --fg: #1d2228;
+    --muted: #5d6670;
+    --line: #c7ccd2;
+    --card: #ffffff;
+    --lane: #eceef1;
+    --src: #5b6b7b;
+    --landing: #5f7590;
+    --bronze: #a35d24;
+    --silver: #66788a;
+    --gold: #a88310;
+    --consume: #1d7a71;
+    --airflow: #0d6fd6;
+    --dq: #c2410c;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #13161a;
+      --fg: #e6e8eb;
+      --muted: #9aa3ad;
+      --line: #3a424b;
+      --card: #1b2026;
+      --lane: #171b20;
+      --src: #95a5b5;
+      --landing: #8fa6c2;
+      --bronze: #d58f55;
+      --silver: #adbccb;
+      --gold: #e2bb3d;
+      --consume: #55baaf;
+      --airflow: #5aa8ff;
+      --dq: #fb923c;
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 1320px; margin: 0 auto; padding: 40px 20px 64px; }
+  header h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); max-width: 70ch; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 22px 0 14px; color: var(--muted); font-size: 13px; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .dash { width: 22px; border-top: 2px dashed var(--muted); display: inline-block; }
+  .pill { font: 600 10px ui-monospace, Menlo, monospace; color: #fff; background: var(--dq); border-radius: 4px; padding: 1px 5px; }
+
+  .diagram { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 8px; }
+  .diagram svg { display: block; min-width: 1100px; width: 100%; height: auto; }
+
+  /* SVG styling */
+  .box { fill: var(--card); stroke: var(--line); stroke-width: 1.2; }
+  .lane { fill: var(--lane); stroke: var(--line); stroke-dasharray: 5 5; }
+  .chip { fill: var(--card); stroke: var(--airflow); stroke-width: 1.4; }
+  .chip-back { fill: var(--card); stroke: var(--airflow); stroke-opacity: .45; }
+  .infra { fill: var(--card); stroke: var(--line); }
+  .flow { stroke: var(--fg); stroke-width: 1.6; fill: none; }
+  .task-flow { stroke: var(--airflow); stroke-width: 1.4; fill: none; }
+  .writes { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 4; fill: none; }
+  .t-title { font: 600 15px system-ui, sans-serif; fill: var(--fg); }
+  .t-sub { font: 11.5px ui-monospace, Menlo, monospace; fill: var(--muted); }
+  .t-body { font: 11.5px system-ui, sans-serif; fill: var(--fg); }
+  .t-mono { font: 11px ui-monospace, Menlo, monospace; fill: var(--fg); }
+  .t-small { font: 10.5px system-ui, sans-serif; fill: var(--muted); }
+  .t-chip { font: 600 12px ui-monospace, Menlo, monospace; fill: var(--fg); }
+  .t-lane { font: 700 11.5px system-ui, sans-serif; letter-spacing: .06em; fill: var(--muted); }
+  .t-lane-strong { font: 700 11.5px system-ui, sans-serif; letter-spacing: .06em; fill: var(--airflow); }
+  .t-dq { font: 700 10px ui-monospace, Menlo, monospace; fill: #fff; }
+  .dq { fill: var(--dq); }
+  .a-src { fill: var(--src); } .a-landing { fill: var(--landing); } .a-bronze { fill: var(--bronze); }
+  .a-silver { fill: var(--silver); } .a-gold { fill: var(--gold); } .a-consume { fill: var(--consume); }
+  .arrowhead { fill: var(--fg); } .arrowhead-af { fill: var(--airflow); } .arrowhead-muted { fill: var(--muted); }
+
+  section { margin-top: 40px; }
+  h2 { font-size: 19px; margin: 0 0 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; border-top-width: 4px; }
+  .card h3 { margin: 0 0 4px; font-size: 16px; }
+  .card .where { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
+  .card ul { margin: 0; padding-left: 18px; }
+  .card li { margin: 3px 0; }
+  .c-bronze { border-top-color: var(--bronze); } .c-silver { border-top-color: var(--silver); }
+  .c-gold { border-top-color: var(--gold); }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: 0; }
+  .sev { font: 600 11px ui-monospace, Menlo, monospace; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+  .sev-error { color: #fff; background: var(--dq); }
+  .sev-warn { color: var(--fg); border: 1px solid var(--line); }
+  footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>CNPJ Medallion Pipeline · Arquitetura</h1>
+    <p>Dados Abertos de CNPJ da Receita Federal → Bronze → Silver → Gold, orquestrado pelo
+      Apache Airflow e processado com PySpark + Delta Lake em containers Docker. O lake local
+      simula buckets S3 (<code>bucket/tabela/particao=valor</code>).</p>
+  </header>
+
+  <div class="legend" aria-label="Legenda">
+    <span><i class="sw" style="background:var(--bronze)"></i>Bronze · CSV bruto</span>
+    <span><i class="sw" style="background:var(--silver)"></i>Silver · Delta tipado</span>
+    <span><i class="sw" style="background:var(--gold)"></i>Gold · Delta modelado</span>
+    <span><i class="sw" style="background:var(--airflow)"></i>Task do Airflow</span>
+    <span><i class="dash"></i>task grava na camada</span>
+    <span><b class="pill">DQ</b>checagem de qualidade entre camadas</span>
+  </div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 1280 660" role="img" aria-labelledby="dg-title dg-desc">
+      <title id="dg-title">Diagrama da arquitetura do pipeline CNPJ</title>
+      <desc id="dg-desc">Fluxo de dados da fonte Casa dos Dados até a camada de consumo, com as tasks
+        do Airflow que produzem cada camada e os containers Docker que executam o ambiente.</desc>
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/>
+        </marker>
+        <marker id="ah-af" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="arrowhead-af"/>
+        </marker>
+        <marker id="ah-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="arrowhead-muted"/>
+        </marker>
+      </defs>
+
+      <!-- ============ Lane 1: data flow ============ -->
+      <text x="20" y="30" class="t-lane">FLUXO DE DADOS</text>
+
+      <!-- Fonte -->
+      <g>
+        <rect x="20" y="44" width="172" height="176" rx="10" class="box"/>
+        <rect x="21" y="45" width="170" height="5" rx="2.5" class="a-src"/>
+        <text x="34" y="78" class="t-title">Fonte</text>
+        <text x="34" y="96" class="t-sub">Casa dos Dados</text>
+        <text x="34" y="124" class="t-body">espelho da Receita Federal</text>
+        <text x="34" y="142" class="t-mono">/arquivos/AAAA-MM-DD/</text>
+        <text x="34" y="160" class="t-body">Empresas · Socios 0–9</text>
+        <text x="34" y="178" class="t-body">Estabelecimentos 0–9</text>
+        <text x="34" y="196" class="t-body">+ Cnaes.zip</text>
+      </g>
+      <!-- Landing -->
+      <g>
+        <rect x="236" y="44" width="172" height="176" rx="10" class="box"/>
+        <rect x="237" y="45" width="170" height="5" rx="2.5" class="a-landing"/>
+        <text x="250" y="78" class="t-title">Landing</text>
+        <text x="250" y="96" class="t-sub">data/landing/</text>
+        <text x="250" y="124" class="t-body">zips da release</text>
+        <text x="250" y="142" class="t-body">escrita atômica (.part)</text>
+        <text x="250" y="160" class="t-body">pula se já completo</text>
+        <text x="250" y="178" class="t-body">retry com backoff</text>
+      </g>
+      <!-- Bronze -->
+      <g>
+        <rect x="452" y="44" width="172" height="176" rx="10" class="box"/>
+        <rect x="453" y="45" width="170" height="5" rx="2.5" class="a-bronze"/>
+        <text x="466" y="78" class="t-title">Bronze</text>
+        <text x="466" y="96" class="t-sub">datacorp-bronze</text>
+        <text x="466" y="124" class="t-body">CSV bruto, sem alteração</text>
+        <text x="466" y="142" class="t-body">ISO-8859-1 · separador ;</text>
+        <text x="466" y="160" class="t-mono">year=/month=/day=</text>
+        <text x="466" y="178" class="t-body">partição = data da release</text>
+      </g>
+      <!-- Silver -->
+      <g>
+        <rect x="668" y="44" width="172" height="176" rx="10" class="box"/>
+        <rect x="669" y="45" width="170" height="5" rx="2.5" class="a-silver"/>
+        <text x="682" y="78" class="t-title">Silver</text>
+        <text x="682" y="96" class="t-sub">datacorp-silver</text>
+        <text x="682" y="124" class="t-body">Delta Lake</text>
+        <text x="682" y="142" class="t-body">tipos, datas, decimais</text>
+        <text x="682" y="160" class="t-body">chaves normalizadas</text>
+        <text x="682" y="178" class="t-body">dedup · estab. por uf</text>
+      </g>
+      <!-- Gold -->
+      <g>
+        <rect x="884" y="44" width="172" height="176" rx="10" class="box"/>
+        <rect x="885" y="45" width="170" height="5" rx="2.5" class="a-gold"/>
+        <text x="898" y="78" class="t-title">Gold</text>
+        <text x="898" y="96" class="t-sub">datacorp-gold</text>
+        <text x="898" y="124" class="t-body">dim_empresas</text>
+        <text x="898" y="142" class="t-body">fact_estabelecimentos</text>
+        <text x="898" y="160" class="t-body">rel_empresa_socio</text>
+        <text x="898" y="178" class="t-body" style="font-size:10.5px">agg_empresas_ativas_cnae_uf</text>
+      </g>
+      <!-- Consumo -->
+      <g>
+        <rect x="1100" y="44" width="172" height="176" rx="10" class="box"/>
+        <rect x="1101" y="45" width="170" height="5" rx="2.5" class="a-consume"/>
+        <text x="1114" y="78" class="t-title">Consumo</text>
+        <text x="1114" y="96" class="t-sub">Athena · Glue</text>
+        <text x="1114" y="124" class="t-body">tabelas Delta no catálogo</text>
+        <text x="1114" y="142" class="t-body">SQL / BI</text>
+        <text x="1114" y="160" class="t-body">empresas ativas</text>
+        <text x="1114" y="178" class="t-body">por CNAE × UF</text>
+      </g>
+
+      <!-- stage arrows -->
+      <g>
+        <text x="214" y="122" text-anchor="middle" class="t-small">HTTP</text>
+        <line x1="194" y1="132" x2="232" y2="132" class="flow" marker-end="url(#ah)"/>
+
+        <text x="430" y="122" text-anchor="middle" class="t-small">unzip</text>
+        <line x1="410" y1="132" x2="448" y2="132" class="flow" marker-end="url(#ah)"/>
+
+        <text x="646" y="122" text-anchor="middle" class="t-small">Spark</text>
+        <line x1="626" y1="132" x2="664" y2="132" class="flow" marker-end="url(#ah)"/>
+        <rect x="632" y="140" width="28" height="16" rx="4" class="dq"/>
+        <text x="646" y="152" text-anchor="middle" class="t-dq">DQ</text>
+
+        <text x="862" y="122" text-anchor="middle" class="t-small">Spark</text>
+        <line x1="842" y1="132" x2="880" y2="132" class="flow" marker-end="url(#ah)"/>
+        <rect x="848" y="140" width="28" height="16" rx="4" class="dq"/>
+        <text x="862" y="152" text-anchor="middle" class="t-dq">DQ</text>
+
+        <text x="1078" y="122" text-anchor="middle" class="t-small">Delta</text>
+        <line x1="1058" y1="132" x2="1096" y2="132" class="flow" marker-end="url(#ah)"/>
+      </g>
+
+      <!-- ============ Lane 2: Airflow ============ -->
+      <rect x="10" y="250" width="1260" height="200" rx="12" class="lane"/>
+      <text x="26" y="274" class="t-lane-strong">AIRFLOW</text>
+      <text x="1254" y="274" text-anchor="end" class="t-lane-strong">DAG cnpj_medallion</text>
+      <text x="1254" y="444" text-anchor="end" class="t-small">@weekly · max 1 run · retries 2 com backoff · params: release, force</text>
+
+      <!-- writes / reads (dashed, task -> layer) -->
+      <g>
+        <line x1="106" y1="290" x2="106" y2="224" class="writes" marker-end="url(#ah-muted)"/>
+        <text x="112" y="244" class="t-small">lê a listagem</text>
+        <line x1="322" y1="328" x2="322" y2="224" class="writes" marker-end="url(#ah-muted)"/>
+        <line x1="538" y1="328" x2="538" y2="224" class="writes" marker-end="url(#ah-muted)"/>
+        <line x1="754" y1="328" x2="754" y2="224" class="writes" marker-end="url(#ah-muted)"/>
+        <line x1="970" y1="340" x2="970" y2="224" class="writes" marker-end="url(#ah-muted)"/>
+      </g>
+
+      <!-- col 1: resolve + gate -->
+      <rect x="28" y="290" width="156" height="30" rx="7" class="chip"/>
+      <text x="106" y="310" text-anchor="middle" class="t-chip">resolve_release</text>
+      <line x1="106" y1="320" x2="106" y2="338" class="task-flow" marker-end="url(#ah-af)"/>
+      <rect x="28" y="340" width="156" height="30" rx="7" class="chip"/>
+      <text x="106" y="360" text-anchor="middle" class="t-chip">release_pending</text>
+      <text x="106" y="392" text-anchor="middle" class="t-small">ShortCircuit: pula release</text>
+      <text x="106" y="406" text-anchor="middle" class="t-small">já publicada</text>
+
+      <!-- col 2: download x4 -->
+      <rect x="252" y="332" width="156" height="30" rx="7" class="chip-back"/>
+      <rect x="248" y="336" width="156" height="30" rx="7" class="chip-back"/>
+      <rect x="244" y="340" width="156" height="30" rx="7" class="chip"/>
+      <text x="322" y="360" text-anchor="middle" class="t-chip">download</text>
+      <text x="322" y="392" text-anchor="middle" class="t-small">streaming em blocos de 8 MB</text>
+
+      <!-- col 3: load_bronze x4 -->
+      <rect x="468" y="332" width="156" height="30" rx="7" class="chip-back"/>
+      <rect x="464" y="336" width="156" height="30" rx="7" class="chip-back"/>
+      <rect x="460" y="340" width="156" height="30" rx="7" class="chip"/>
+      <text x="538" y="360" text-anchor="middle" class="t-chip">load_bronze</text>
+      <text x="538" y="392" text-anchor="middle" class="t-small">unzip em streaming,</text>
+      <text x="538" y="406" text-anchor="middle" class="t-small">bytes intactos</text>
+
+      <!-- col 4: build_silver x4 -->
+      <rect x="684" y="332" width="156" height="30" rx="7" class="chip-back"/>
+      <rect x="680" y="336" width="156" height="30" rx="7" class="chip-back"/>
+      <rect x="676" y="340" width="156" height="30" rx="7" class="chip"/>
+      <text x="754" y="360" text-anchor="middle" class="t-chip">build_silver</text>
+      <text x="754" y="392" text-anchor="middle" class="t-small">schema fixo · DQ</text>
+      <text x="754" y="406" text-anchor="middle" class="t-small">pool spark (1 slot)</text>
+
+      <!-- col 5: build_gold -->
+      <rect x="892" y="340" width="156" height="30" rx="7" class="chip"/>
+      <text x="970" y="360" text-anchor="middle" class="t-chip">build_gold</text>
+      <text x="970" y="392" text-anchor="middle" class="t-small">dim · fact · rel · agg · DQ</text>
+      <text x="970" y="406" text-anchor="middle" class="t-small">pool spark (1 slot)</text>
+
+      <!-- col 6: mark done -->
+      <rect x="1108" y="340" width="156" height="30" rx="7" class="chip"/>
+      <text x="1186" y="360" text-anchor="middle" class="t-chip">mark_release_done</text>
+      <text x="1186" y="392" text-anchor="middle" class="t-small">grava _control/</text>
+      <text x="1186" y="406" text-anchor="middle" class="t-small">release=AAAA-MM-DD.done</text>
+
+      <!-- task arrows -->
+      <path d="M184,355 L240,355" class="task-flow" marker-end="url(#ah-af)"/>
+      <path d="M400,355 L456,355" class="task-flow" marker-end="url(#ah-af)"/>
+      <path d="M616,355 L672,355" class="task-flow" marker-end="url(#ah-af)"/>
+      <path d="M832,355 L888,355" class="task-flow" marker-end="url(#ah-af)"/>
+      <path d="M1048,355 L1104,355" class="task-flow" marker-end="url(#ah-af)"/>
+
+      <!-- TaskGroup bracket -->
+      <path d="M244,420 L244,428 L840,428 L840,420" fill="none" stroke="var(--airflow)" stroke-width="1.2"/>
+      <text x="542" y="444" text-anchor="middle" class="t-small">TaskGroup por tabela, em paralelo: empresas · estabelecimentos · socios · cnaes</text>
+
+      <!-- ============ Lane 3: Docker Compose ============ -->
+      <rect x="10" y="470" width="1260" height="176" rx="12" class="lane"/>
+      <text x="26" y="494" class="t-lane">DOCKER COMPOSE · make up / make run</text>
+
+      <g>
+        <rect x="20" y="510" width="196" height="76" rx="9" class="infra"/>
+        <text x="34" y="536" class="t-chip">postgres:16</text>
+        <text x="34" y="556" class="t-small">metadados do Airflow</text>
+        <text x="34" y="572" class="t-small">(runs, XCom, pools)</text>
+
+        <rect x="230" y="510" width="196" height="76" rx="9" class="infra"/>
+        <text x="244" y="536" class="t-chip">airflow-init</text>
+        <text x="244" y="556" class="t-small">db migrate · usuário admin</text>
+        <text x="244" y="572" class="t-small">cria o pool spark</text>
+
+        <rect x="440" y="510" width="196" height="76" rx="9" class="infra"/>
+        <text x="454" y="536" class="t-chip">airflow-webserver</text>
+        <text x="454" y="556" class="t-small">UI em localhost:8080</text>
+        <text x="454" y="572" class="t-small">healthcheck /health</text>
+
+        <rect x="650" y="510" width="196" height="76" rx="9" class="infra"/>
+        <text x="664" y="536" class="t-chip">airflow-scheduler</text>
+        <text x="664" y="556" class="t-small">LocalExecutor: executa as</text>
+        <text x="664" y="572" class="t-small">tasks e o Spark em modo local</text>
+
+        <rect x="860" y="510" width="196" height="76" rx="9" class="infra"/>
+        <text x="874" y="536" class="t-chip">imagem única</text>
+        <text x="874" y="556" class="t-small">Airflow 2.10 · Java 17</text>
+        <text x="874" y="572" class="t-small">PySpark 3.5 · Delta 3.2</text>
+
+        <rect x="1070" y="510" width="196" height="76" rx="9" class="infra"/>
+        <text x="1084" y="536" class="t-chip">volume ./data</text>
+        <text x="1084" y="556" class="t-small">buckets locais visíveis</text>
+        <text x="1084" y="572" class="t-small">no host (simula S3)</text>
+      </g>
+      <text x="26" y="622" class="t-small">Em produção o mesmo código roda como Glue job / EMR (GlueJobOperator) gravando em s3a://, e o Airflow só orquestra.</text>
+    </svg>
+  </div>
+
+  <section>
+    <h2>Camadas</h2>
+    <div class="grid">
+      <div class="card c-bronze">
+        <h3>Bronze</h3>
+        <div class="where mono">datacorp-bronze/&lt;tabela&gt;/year=/month=/day=/</div>
+        <ul>
+          <li>Cópia fiel dos CSVs da Receita (sem cabeçalho, <code>;</code>, ISO-8859-1)</li>
+          <li>Partição pela <b>data da release</b>, então reprocessar é idempotente</li>
+          <li>Permite refazer o Silver sem baixar nada de novo</li>
+        </ul>
+      </div>
+      <div class="card c-silver">
+        <h3>Silver</h3>
+        <div class="where mono">datacorp-silver/&lt;tabela&gt;/_delta_log</div>
+        <ul>
+          <li>empresas · estabelecimentos (por <code>uf</code>) · socios · cnaes</li>
+          <li>Datas <code>yyyyMMdd</code>, decimal BR, códigos → descrições</li>
+          <li>CNPJ de 14 dígitos, dedup por chave, colunas de linhagem</li>
+        </ul>
+      </div>
+      <div class="card c-gold">
+        <h3>Gold</h3>
+        <div class="where mono">datacorp-gold/&lt;tabela&gt;/_delta_log</div>
+        <ul>
+          <li><code>dim_empresas</code>, <code>fact_estabelecimentos</code> (por <code>uf</code>), <code>rel_empresa_socio</code></li>
+          <li><code>agg_empresas_ativas_cnae_uf</code>: empresas ativas, % e ranking do CNAE na UF</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Checagens de qualidade (DQ)</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Etapa</th><th>Checagem</th><th>Severidade</th></tr></thead>
+        <tbody>
+          <tr><td>Bronze → Silver</td><td>% de linhas malformadas ≤ <code>DQ_MAX_CORRUPT_RATIO</code></td><td><span class="sev sev-error">error</span></td></tr>
+          <tr><td>Silver</td><td>não vazia · chave não nula · chave única</td><td><span class="sev sev-error">error</span></td></tr>
+          <tr><td>Silver estabelecimentos</td><td><code>uf</code> e <code>situacao_cadastral</code> dentro do domínio</td><td><span class="sev sev-warn">warn</span></td></tr>
+          <tr><td>Gold</td><td>tabelas não vazias · unicidade de dim/fact · uf e CNAE não nulos no agregado</td><td><span class="sev sev-error">error</span></td></tr>
+          <tr><td>Gold</td><td>% de estabelecimentos sem empresa ≤ <code>DQ_MAX_ORPHAN_RATIO</code></td><td><span class="sev sev-warn">warn</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Do local para a AWS</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Componente</th><th>Hoje (local)</th><th>Produção</th></tr></thead>
+        <tbody>
+          <tr><td>Processamento</td><td>Spark <code>local[*]</code> dentro da task</td><td>Glue job / EMR Serverless, mesmo código</td></tr>
+          <tr><td>Armazenamento</td><td>Pastas <code>data/lake/&lt;bucket&gt;</code></td><td>S3 com <code>LAKE_ROOT=s3</code> → <code>s3a://&lt;bucket&gt;</code></td></tr>
+          <tr><td>Consulta</td><td>Spark SQL</td><td>Glue Data Catalog + Athena (<code>sql/athena_gold_tables.sql</code>)</td></tr>
+          <tr><td>Orquestração</td><td>Airflow LocalExecutor no Docker</td><td>MWAA / Celery / KubernetesExecutor</td></tr>
+          <tr><td>Download</td><td>Uma task por tabela</td><td>Dynamic task mapping, uma task por arquivo, direto para S3</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>Abra este arquivo no navegador (<code>open docs/architecture.html</code>). Mais detalhes no README.</footer>
+</main>
+</body>
+</html>

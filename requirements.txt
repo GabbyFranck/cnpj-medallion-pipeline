@@ -1,0 +1,4 @@
+# Versions shared with Airflow are aligned to its official constraints (2.10.5).
+pyspark==3.5.4
+delta-spark==3.2.1
+requests==2.32.3
