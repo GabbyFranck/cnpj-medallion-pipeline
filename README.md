@@ -1,5 +1,7 @@
 # CNPJ Medallion Pipeline
 
+[![CI](https://github.com/GabbyFranck/cnpj-medallion-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/GabbyFranck/cnpj-medallion-pipeline/actions/workflows/ci.yml)
+
 Pipeline containerizado que baixa os **Dados Abertos de CNPJ da Receita Federal** (espelho da
 [Casa dos Dados](https://dados-abertos-rf-cnpj.casadosdados.com.br/arquivos/)) e os leva pelas
 camadas **Bronze → Silver → Gold** com **Apache Airflow**, **PySpark** e **Delta Lake**, respondendo
