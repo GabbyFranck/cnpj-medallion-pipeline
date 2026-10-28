@@ -40,8 +40,10 @@ services:
 
   airflow-init:
     <<: *airflow-common
-    entrypoint: /bin/bash
+    # No entrypoint override: the image entrypoint registers the host UID in /etc/passwd
+    # (Airflow refuses to run without a username) and then passes `bash` through.
     command:
+      - bash
       - -c
       - |
         set -euo pipefail
