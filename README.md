@@ -254,6 +254,32 @@ make lint         # flake8 + black --check
 
 Configuração: `.flake8` e `pyproject.toml` (black, linha de 100 colunas; pytest).
 
+### CI (GitHub Actions)
+
+O workflow `.github/workflows/ci.yml` roda em qualquer push e em pull requests, com dois jobs:
+
+- **Lint + unit tests**: flake8, black e pytest em Python 3.11 + Java 17.
+- **Docker stack**: builda a imagem, roda `make lint` e `make test` dentro dela, sobe o
+  `docker compose`, espera o Airflow ficar saudável, confere que a DAG importa sem erros e que o
+  pool `spark` existe, e executa a task `resolve_release` contra o espelho real.
+
+### Rodando o CI no seu próprio repositório
+
+O workflow não usa secrets nem nada específico deste repositório, então funciona em qualquer
+cópia. Pontos de atenção:
+
+- **Fork:** o GitHub desativa Actions em forks; habilite na aba **Actions**.
+- **Push via HTTPS com token clássico:** o token precisa do escopo `workflow` para enviar
+  arquivos em `.github/workflows/` (ou use SSH / upload pela interface web).
+- **Organizações:** o workflow usa apenas actions oficiais do GitHub (`checkout`,
+  `setup-python`, `setup-java`), normalmente liberadas pelas políticas da organização.
+- **Badge:** troque `GabbyFranck/cnpj-medallion-pipeline` na URL do badge no topo deste README
+  pelo `<usuario>/<repositorio>` da sua cópia.
+- **Dependências externas:** o job baixa imagens do Docker Hub, pacotes do PyPI, jars do Maven
+  Central e consulta o espelho da Casa dos Dados. Se algum deles estiver fora do ar, basta
+  reexecutar o job.
+- Também é possível disparar manualmente pela aba **Actions** (`workflow_dispatch`).
+
 ---
 
 ## Configuração

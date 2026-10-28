@@ -1,8 +1,8 @@
 name: CI
 
 on:
+  # Any branch, so copies of the repo with a different default branch still run CI.
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
