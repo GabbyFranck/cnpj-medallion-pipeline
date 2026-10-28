@@ -5,6 +5,7 @@ DAG_ID := cnpj_medallion
 # is not started for these commands.
 RUN := $(COMPOSE) run --rm --no-deps -e CONNECTION_CHECK_MAX_COUNT=0 airflow-scheduler
 PY_SOURCES := src dags tests
+WEB_PORT = $(or $(shell grep -E '^AIRFLOW_WEB_PORT=' .env 2>/dev/null | cut -d= -f2),8080)
 
 .DEFAULT_GOAL := help
 .PHONY: help up down restart logs ps register-dag run run-release test lint format \
@@ -20,7 +21,7 @@ help: ## List available commands
 
 up: .env ## Build images and start Airflow (UI on http://localhost:8080, admin/admin)
 	$(COMPOSE) up -d --build
-	@echo "Airflow UI: http://localhost:8080"
+	@echo "Airflow UI: http://localhost:$(WEB_PORT)"
 
 down: ## Stop containers (keeps data and metadata)
 	$(COMPOSE) down

@@ -296,6 +296,7 @@ Todas as variáveis estão em `.env.example` (copiado para `.env` pelo `make up`
 | `SPARK_MASTER` / `SPARK_DRIVER_MEMORY` / `SPARK_SHUFFLE_PARTITIONS` | `local[*]`, `4g`, `64` | Dimensionamento do Spark |
 | `DQ_MAX_CORRUPT_RATIO` / `DQ_MAX_ORPHAN_RATIO` | `0.001`, `0.05` | Limites de DQ |
 | `SPARK_POOL` / `SPARK_POOL_SLOTS` | `spark`, `1` | Pool do Airflow para as tasks Spark |
+| `AIRFLOW_WEB_PORT` | `8080` | Porta do host para a UI do Airflow (troque se a 8080 estiver em uso) |
 
 ---
 
