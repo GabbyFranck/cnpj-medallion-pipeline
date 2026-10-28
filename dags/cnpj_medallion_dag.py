@@ -21,6 +21,9 @@ from cnpj_pipeline import tasks
 from cnpj_pipeline.schemas import ENTITIES
 
 SPARK_POOL = os.getenv("SPARK_POOL", "spark")
+# Empty = manual runs only. With any schedule and catchup=False, Airflow starts the latest
+# interval as soon as the DAG is unpaused, so `make run` would produce two runs.
+SCHEDULE = os.getenv("CNPJ_SCHEDULE", "").strip() or None
 RELEASE = "{{ ti.xcom_pull(task_ids='resolve_release') }}"
 
 default_args = {
@@ -34,9 +37,9 @@ with DAG(
     dag_id="cnpj_medallion",
     description="Receita Federal CNPJ open data through the Medallion architecture",
     start_date=datetime(2026, 1, 1),
-    # Releases are monthly but on irregular days; a weekly check plus the
-    # release_pending gate picks up new releases within a week and is a no-op otherwise.
-    schedule="@weekly",
+    # Releases are monthly but on irregular days; in production CNPJ_SCHEDULE=@weekly plus
+    # the release_pending gate picks up new releases within a week and is a no-op otherwise.
+    schedule=SCHEDULE,
     catchup=False,
     max_active_runs=1,
     default_args=default_args,

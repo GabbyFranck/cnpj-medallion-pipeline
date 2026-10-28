@@ -204,7 +204,12 @@ para o log da task e para o XCom.
   no DQ). O *column pruning* do parser CSV é desligado para que essa detecção seja consistente.
 - **Idempotência ponta a ponta.** Download pula arquivos já completos (comparando o tamanho com o
   `Content-Length`); Bronze é particionado pela data da release; Silver/Gold sobrescrevem; um
-  marcador evita reprocessar uma release já publicada (agenda semanal + `ShortCircuit`).
+  marcador evita reprocessar uma release já publicada (`ShortCircuit`).
+- **Agenda opcional.** Por padrão a DAG é manual (`make run` gera exatamente uma execução).
+  Com `CNPJ_SCHEDULE=@weekly` ela verifica novas releases toda semana; o `ShortCircuit` torna
+  as execuções sem release nova praticamente gratuitas. A agenda não fica ligada por padrão
+  porque, com `catchup=False`, o Airflow dispara o intervalo mais recente assim que a DAG é
+  despausada, o que somaria uma segunda execução ao `make run`.
 - **Estrutura que simula S3.** `data/lake/<bucket>/<tabela>/<particao>=<valor>` com buckets
   configuráveis. `LAKE_ROOT=s3` troca os caminhos Spark para `s3a://<bucket>/...`.
 - **Configuração 100% por variáveis de ambiente** (`config.Settings`), sem valores fixos no código.
@@ -290,6 +295,7 @@ Todas as variáveis estão em `.env.example` (copiado para `.env` pelo `make up`
 |---|---|---|
 | `CNPJ_BASE_URL` | espelho Casa dos Dados | Listagem com uma pasta por release |
 | `CNPJ_RELEASE` | *(vazio = mais recente)* | Fixa uma release `AAAA-MM-DD` |
+| `CNPJ_SCHEDULE` | *(vazio = só manual)* | Agenda da DAG, ex.: `@weekly` |
 | `CNPJ_FILE_PARTS` | `1` | Arquivos numerados por tabela: `all`, `1`, `0-3`, `0,5` |
 | `LAKE_ROOT` / `LANDING_DIR` | `data/lake`, `data/landing` | Raiz do lake (`s3` para usar `s3a://`) e cache de zips |
 | `BRONZE_BUCKET` / `SILVER_BUCKET` / `GOLD_BUCKET` | `datacorp-*` | Nomes dos "buckets" |
